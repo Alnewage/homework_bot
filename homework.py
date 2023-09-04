@@ -74,7 +74,7 @@ def get_api_answer(timestamp):
             params=payload,
         )
         assert response.status_code == 200
-    except (requests.RequestException, AssertionError,) as e:
+    except (requests.RequestException, AssertionError,):
         text_error = f'Ошибка при запросе к эндпоинту: {ENDPOINT}'
         logger.error(text_error)
         raise StatusCodeError(text_error)
@@ -132,7 +132,6 @@ def parse_status(homework):
 
 def main():
     """Основная логика работы бота."""
-
     check_tokens()
 
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
