@@ -1,13 +1,14 @@
 import logging
 import os
 import time
+from http import HTTPStatus
 
 import requests
 import telegram
 from dotenv import load_dotenv
 from telegram import TelegramError
 
-from exceptions import RequiredEnvVariables, StatusCodeError, VerdictError
+from exceptions import RequiredEnvVariablesError, StatusCodeError, VerdictError
 
 load_dotenv()
 
@@ -26,15 +27,10 @@ HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
 HOMEWORK_VERDICTS = {
     'approved': 'Работа проверена: ревьюеру всё понравилось. Ура!',
     'reviewing': 'Работа взята на проверку ревьюером.',
-    'rejected': 'Работа проверена: у ревьюера есть замечания.'
+    'rejected': 'Работа проверена: у ревьюера есть замечания.',
 }
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-handler = logging.StreamHandler()
-logger.addHandler(handler)
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-handler.setFormatter(formatter)
 
 
 def check_tokens():
@@ -48,37 +44,40 @@ def check_tokens():
     ):
         text_error = 'Отсутствуют обязательные переменные окружения'
         logger.critical(text_error)
-        raise RequiredEnvVariables(text_error)
+        raise RequiredEnvVariablesError(text_error)
     logger.debug('Обязательные переменные окружения обнаружены')
 
 
 def send_message(bot, message):
     """Отправляет сообщение с использованием Telegram бота."""
+    logger.debug(f'Пытаемся отправить сообщение: {message}')
     try:
         bot.send_message(
             chat_id=TELEGRAM_CHAT_ID,
             text=message,
         )
-        logger.debug(f'Отправлено сообщение: {message}')
     except TelegramError as e:
         logger.error(f'Ошибка при отправке сообщения: {e}')
+    else:
+        logger.debug('Сообщение успешно отправлено.')
 
 
 def get_api_answer(timestamp):
     """Получает ответ от API на основе предоставленной метки времени."""
     payload = {'from_date': timestamp}
+    logger.debug('Пытаемся получить ответ от API Яндекс.Домашка.')
     try:
         response = requests.get(
             ENDPOINT,
             headers=HEADERS,
             params=payload,
         )
-        assert response.status_code == 200
+        assert response.status_code == HTTPStatus.OK
     except (requests.RequestException, AssertionError,):
         text_error = f'Ошибка при запросе к эндпоинту: {ENDPOINT}'
         logger.error(text_error)
         raise StatusCodeError(text_error)
-    logger.info('Ответ API от Яндекс.Домашка получен.')
+    logger.info('Ответ от API успешно получен.')
     data = response.json()
     logger.info(data)
     return data
@@ -142,11 +141,10 @@ def main():
         try:
             response = get_api_answer(timestamp - PAST_TIMESTAMP)
             homework = check_response(response)[0]
+            message = parse_status(homework)
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
             logger.error(message)
-        else:
-            message = parse_status(homework)
         if message and message != previous_message:
             send_message(bot, message)
             previous_message = message
@@ -157,4 +155,10 @@ def main():
 
 
 if __name__ == '__main__':
+    logger.setLevel(logging.DEBUG)
+    handler = logging.StreamHandler()
+    logger.addHandler(handler)
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+
     main()

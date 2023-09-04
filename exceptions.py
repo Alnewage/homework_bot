@@ -1,13 +1,10 @@
-class RequiredEnvVariables(Exception):
-    def __init__(self, message):
-        super().__init__(message)
+class RequiredEnvVariablesError(Exception):
+    pass
 
 
 class StatusCodeError(Exception):
-    def __init__(self, message):
-        super().__init__(message)
+    pass
 
 
 class VerdictError(Exception):
-    def __init__(self, message):
-        super().__init__(message)
+    pass
